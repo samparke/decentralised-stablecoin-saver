@@ -21,7 +21,7 @@ contract DecentralisedStablecoin is ERC20, ERC20Burnable, Ownable(msg.sender) {
         return true;
     }
 
-    function burn(address user, uint256 amount) public onlyOwner returns (bool) {
+    function burn(uint256 amount) public override onlyOwner {
         uint256 balance = balanceOf(msg.sender);
         if (amount <= 0) {
             revert DecentralisedStablecoin__NeedsMoreThanZero();
@@ -29,7 +29,6 @@ contract DecentralisedStablecoin is ERC20, ERC20Burnable, Ownable(msg.sender) {
         if (balance < amount) {
             revert DecentralisedStablecoin__BurnMoreThanBalance();
         }
-        _burn(user, amount);
-        return true;
+        super.burn(amount);
     }
 }
