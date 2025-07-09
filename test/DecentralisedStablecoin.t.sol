@@ -13,7 +13,7 @@ contract DecentralisedStablecoinTest is Test {
         dsc = new DecentralisedStablecoin();
     }
 
-    function testInitialBalanceIsZero() public {
+    function testInitialBalanceIsZero() public view {
         uint256 balance = dsc.balanceOf(msg.sender);
         assertEq(balance, 0);
     }
