@@ -3,6 +3,7 @@
 pragma solidity ^0.8.20;
 
 import {DecentralisedStablecoin} from "../src/DecentralisedStablecoin.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DSCEngine {
     // error
@@ -26,5 +27,19 @@ contract DSCEngine {
             s_collateralTokenAddresses.push(tokenAddresses[i]);
         }
         i_dsc = DecentralisedStablecoin(dsc);
+    }
+
+    function depositCollateral(address tokenCollateralAddress, uint256 amountToDeposit) public {
+        s_userCollateralDepositted[msg.sender][tokenCollateralAddress] += amountToDeposit;
+    }
+
+    function mintDsc(uint256 amountDscToMint) public {
+        s_userDscMinted[msg.sender] += amountDscToMint;
+    }
+
+    function burnDsc(uint256 amountDscToBurn) public {}
+
+    function redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem) public {
+        s_userCollateralDepositted[msg.sender][tokenCollateralAddress] -= amountToRedeem;
     }
 }
