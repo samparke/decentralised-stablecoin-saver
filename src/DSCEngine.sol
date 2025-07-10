@@ -8,6 +8,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract DSCEngine {
     // error
     error DSCEngine__TokenAddressesAndPriceFeedAddressesDoNotMatch();
+    error DSCEngine__TransferFailed();
+    error DSCEngine__MintFailed();
 
     address[] private s_collateralTokenAddresses;
 
@@ -31,10 +33,18 @@ contract DSCEngine {
 
     function depositCollateral(address tokenCollateralAddress, uint256 amountToDeposit) public {
         s_userCollateralDepositted[msg.sender][tokenCollateralAddress] += amountToDeposit;
+        bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountToDeposit);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
     }
 
     function mintDsc(uint256 amountDscToMint) public {
         s_userDscMinted[msg.sender] += amountDscToMint;
+        bool success = i_dsc.mint(msg.sender, amountDscToMint);
+        if (!success) {
+            revert DSCEngine__MintFailed();
+        }
     }
 
     function burnDsc(uint256 amountDscToBurn) public {}
