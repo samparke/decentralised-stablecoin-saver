@@ -41,6 +41,13 @@ contract DSCEngine {
         }
     }
 
+    function depositCollateralAndMintDsc(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountToMint)
+        public
+    {
+        depositCollateral(tokenCollateralAddress, amountCollateral);
+        mintDsc(amountToMint);
+    }
+
     function mintDsc(uint256 amountDscToMint) public {
         s_userDscMinted[msg.sender] += amountDscToMint;
         bool success = i_dsc.mint(msg.sender, amountDscToMint);
@@ -55,6 +62,13 @@ contract DSCEngine {
 
     function redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem) public {
         _redeemCollateral(tokenCollateralAddress, amountToRedeem, msg.sender, msg.sender);
+    }
+
+    function redeemCollateralForDsc(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountToBurn)
+        public
+    {
+        burnDsc(amountToBurn);
+        redeemCollateral(tokenCollateralAddress, amountCollateral);
     }
 
     // internal functions
