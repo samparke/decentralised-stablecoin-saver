@@ -12,6 +12,7 @@ contract DSCEngine {
     error DSCEngine__MintFailed();
     error DSCEngine__BurnFailed();
     error DSCEngine_RedeemFailed();
+    error DSCEngine__MustBeMoreThanZero();
 
     address[] private s_collateralTokenAddresses;
 
@@ -20,6 +21,13 @@ contract DSCEngine {
     mapping(address token => address priceFeed) private s_tokenPriceFeeds;
 
     DecentralisedStablecoin private immutable i_dsc;
+
+    modifier moreThanZero(uint256 amount) {
+        if (amount == 0) {
+            revert DSCEngine__MustBeMoreThanZero();
+        }
+        _;
+    }
 
     constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address dsc) {
         if (tokenAddresses.length != priceFeedAddresses.length) {
@@ -33,7 +41,10 @@ contract DSCEngine {
         i_dsc = DecentralisedStablecoin(dsc);
     }
 
-    function depositCollateral(address tokenCollateralAddress, uint256 amountToDeposit) public {
+    function depositCollateral(address tokenCollateralAddress, uint256 amountToDeposit)
+        public
+        moreThanZero(amountToDeposit)
+    {
         s_userCollateralDepositted[msg.sender][tokenCollateralAddress] += amountToDeposit;
         bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountToDeposit);
         if (!success) {
@@ -48,7 +59,7 @@ contract DSCEngine {
         mintDsc(amountToMint);
     }
 
-    function mintDsc(uint256 amountDscToMint) public {
+    function mintDsc(uint256 amountDscToMint) public moreThanZero(amountDscToMint) {
         s_userDscMinted[msg.sender] += amountDscToMint;
         bool success = i_dsc.mint(msg.sender, amountDscToMint);
         if (!success) {
@@ -56,11 +67,14 @@ contract DSCEngine {
         }
     }
 
-    function burnDsc(uint256 amountDscToBurn) public {
+    function burnDsc(uint256 amountDscToBurn) public moreThanZero(amountDscToBurn) {
         _burnDsc(amountDscToBurn, msg.sender, msg.sender);
     }
 
-    function redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem) public {
+    function redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem)
+        public
+        moreThanZero(amountToRedeem)
+    {
         _redeemCollateral(tokenCollateralAddress, amountToRedeem, msg.sender, msg.sender);
     }
 
