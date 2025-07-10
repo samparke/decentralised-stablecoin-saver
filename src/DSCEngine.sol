@@ -10,6 +10,8 @@ contract DSCEngine {
     error DSCEngine__TokenAddressesAndPriceFeedAddressesDoNotMatch();
     error DSCEngine__TransferFailed();
     error DSCEngine__MintFailed();
+    error DSCEngine__BurnFailed();
+    error DSCEngine_RedeemFailed();
 
     address[] private s_collateralTokenAddresses;
 
@@ -47,9 +49,34 @@ contract DSCEngine {
         }
     }
 
-    function burnDsc(uint256 amountDscToBurn) public {}
+    function burnDsc(uint256 amountDscToBurn) public {
+        _burnDsc(amountDscToBurn, msg.sender, msg.sender);
+    }
 
     function redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem) public {
-        s_userCollateralDepositted[msg.sender][tokenCollateralAddress] -= amountToRedeem;
+        _redeemCollateral(tokenCollateralAddress, amountToRedeem, msg.sender, msg.sender);
+    }
+
+    // internal functions
+
+    function _burnDsc(uint256 amountDscToBurn, address onBehalfOf, address dscFrom) private {
+        s_userDscMinted[onBehalfOf] -= amountDscToBurn;
+        // transfer dsc from msg.sender/liquidator (in burn function), to this address (equivalient to burn)
+        bool success = i_dsc.transferFrom(dscFrom, address(this), amountDscToBurn);
+        if (!success) {
+            revert DSCEngine__BurnFailed();
+        }
+        i_dsc.burn(amountDscToBurn);
+    }
+
+    function _redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem, address from, address to)
+        private
+    {
+        s_userCollateralDepositted[from][tokenCollateralAddress] -= amountToRedeem;
+        // transfer instead of transferFrom function as collateral is already stored within this contract
+        bool success = IERC20(tokenCollateralAddress).transfer(to, amountToRedeem);
+        if (!success) {
+            revert DSCEngine_RedeemFailed();
+        }
     }
 }
