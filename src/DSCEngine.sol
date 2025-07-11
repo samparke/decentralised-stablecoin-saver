@@ -97,25 +97,27 @@ contract DSCEngine {
     function calculateHealthFactor() public {}
 
     function getAccountInformation(address user)
-        private
+        public
         view
         returns (uint256 totalDscMinted, uint256 collateralValueInUsd)
     {
-        totalDscMinted = s_userDscMinted[user];
-        // collateralValueInUsd = _getAccountCollateralValue();
+        (totalDscMinted, collateralValueInUsd) = _getAccountInformation(user);
     }
 
-    function getAccountCollateralValue(address user) private returns (uint256 collateralValue) {
+    function getAccountCollateralValue(address user) public view returns (uint256 collateralValue) {
         for (uint256 i = 0; i < s_collateralTokenAddresses.length; i++) {
             address token = s_collateralTokenAddresses[i];
             uint256 amount = s_userCollateralDepositted[user][token];
-            // collateralValue = _getUsdValue(token, amount);
+            collateralValue = getUsdValue(token, amount);
+            return collateralValue;
         }
     }
 
-    function getUsdValue(address token, uint256 amount) private returns (uint256) {
+    function getUsdValue(address token, uint256 amount) public view returns (uint256) {
+        // retreives the price feed for the token we pass into the function, such as weth/eth on sepolia
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_tokenPriceFeeds[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
+        // converts into the correct decimals for our contract
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
     }
 
@@ -139,5 +141,14 @@ contract DSCEngine {
         if (!success) {
             revert DSCEngine_RedeemFailed();
         }
+    }
+
+    function _getAccountInformation(address user)
+        private
+        view
+        returns (uint256 totalDscMinted, uint256 collateralValueInUsd)
+    {
+        totalDscMinted = s_userDscMinted[user];
+        collateralValueInUsd = getAccountCollateralValue(user);
     }
 }
