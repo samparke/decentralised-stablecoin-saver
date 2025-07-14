@@ -15,6 +15,8 @@ contract DSCEngine {
     error DSCEngine_RedeemFailed();
     error DSCEngine__MustBeMoreThanZero();
     error DSCEngine__BrokenHealthFactor(uint256 healthFactor);
+    error DSCEngine__HealthFactorIsGood();
+    error DSCEngine__HealthFactorHasNotImproved();
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
@@ -154,6 +156,38 @@ contract DSCEngine {
         // we then multiple by amount, which will also be 18 decimals, which would give us 36 decimals
         // // finally we divide by 1e18 to convert back into 18 decimals
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+    }
+
+    function getTokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns(uint256){
+        // gets the price for token
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_tokenPriceFeeds[token]);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        // returns the USD amount 
+        return ((usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION));
+    }
+
+    // LIQUIDATION
+
+    function liquidate(address collateral, address user, uint256 debtToCover) external moreThanZero(debtToCover) {
+        // if the health factor is good, this function should not execute. Liquidation should only happen if health factor is bad
+        uint256 startingUserHealthFactor = _healthFactor(user);
+        if (startingUserHealthFactor >= MIN_HEALTH_FACTOR){
+            revert DSCEngine__HealthFactorIsGood();
+        }
+        uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(collateral, debtToCover);
+        uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATION_BONUS) / LIQUIDATION_PRECISION;
+        uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
+        // the liquidator is able to redeem the collateral token, for the totalCollateralToRedeem, from the user with bad health factor
+        _redeemCollateral(collateral, totalCollateralToRedeem, user, msg.sender)
+        // we must then burn the liquidators dsc
+        _burnDsc(debtToCover, user, msg.sender);
+        uint256 endingUserHealthFactor = _healthFactor(user);
+        // check function actually worked as intended
+        if (endingUserHealthFactor <= startingUserHealthFactor){
+            revert DSCEngine__HealthFactorHasNotImproved();
+        }
+        _revertIfHealthFactorIsBroken(msg.sender);
+
     }
 
     // PRIVATE AND INTERNAL FUNCTIONS
