@@ -62,6 +62,7 @@ contract DSCEngine {
         moreThanZero(amountToDeposit)
     {
         s_userCollateralDepositted[msg.sender][tokenCollateralAddress] += amountToDeposit;
+        emit CollateralDeposited(msg.sender,tokenCollateralAddress,amountToDeposit);
         bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountToDeposit);
         if (!success) {
             revert DSCEngine__TransferFailed();
@@ -71,6 +72,7 @@ contract DSCEngine {
     function depositCollateralAndMintDsc(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountToMint)
         public
     {
+        // we don't need to emit the deposit collateral event, as it emits in the depositCollateral function
         depositCollateral(tokenCollateralAddress, amountCollateral);
         mintDsc(amountToMint);
     }
@@ -205,6 +207,7 @@ contract DSCEngine {
         private
     {
         s_userCollateralDepositted[from][tokenCollateralAddress] -= amountToRedeem;
+        emit CollateralRedeemed(from, to,tokenCollateralAddress, amountToRedeem);
         // transfer instead of transferFrom function as collateral is already stored within this contract
         bool success = IERC20(tokenCollateralAddress).transfer(to, amountToRedeem);
         if (!success) {
