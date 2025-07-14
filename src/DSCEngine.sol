@@ -17,6 +17,9 @@ contract DSCEngine {
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
+    uint256 private constant LIQUIDATION_THRESHOLD = 50;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant LIQUIDATION_BONUS = 10;
 
     address[] private s_collateralTokenAddresses;
     mapping(address user => mapping(address token => uint256 amount)) private s_userCollateralDepositted;
@@ -94,7 +97,15 @@ contract DSCEngine {
 
     function revertIfHealthFactorIsBroken() public {}
 
-    function calculateHealthFactor() public {}
+    function _healthFactor(address user) private view returns(uint256) {
+        (totalDscMinted, collateralValueInUsd) = _getAccountInformation(user);
+        return _calculateHealthFactor(totalDscMinted, collateralValueInUsd)
+    }
+
+    function calculateHealthFactor(uint256 totalDscMinted, uint256 collateralValueInUsd) public view returns(uint256){
+        return (_calculateHealthFactor(totalDscMinted, collateralValueInUsd));
+    }
+
 
     function getAccountInformation(address user)
         public
@@ -118,6 +129,9 @@ contract DSCEngine {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_tokenPriceFeeds[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
         // converts into the correct decimals for our contract
+        // the price will be originally in 8 decimals. we multiply by 1e10 to convert to 18 decimals
+        // we then multiple by amount, which will also be 18 decimals, which would give us 36 decimals
+        // // finally we divide by 1e18 to convert back into 18 decimals
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
     }
 
@@ -150,5 +164,13 @@ contract DSCEngine {
     {
         totalDscMinted = s_userDscMinted[user];
         collateralValueInUsd = getAccountCollateralValue(user);
+    }
+
+    function _calculateHealthFactor() internal pure returns(uint256 totalDscMinted, uint256 collateralValueInUsd){
+        if (totalDscMinted == 0){
+            return type(uint256).max;
+        }
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }
 }
