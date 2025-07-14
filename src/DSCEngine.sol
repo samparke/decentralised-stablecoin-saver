@@ -28,6 +28,10 @@ contract DSCEngine {
     mapping(address user => uint256 dscMinted) private s_userDscMinted;
     mapping(address token => address priceFeed) private s_tokenPriceFeeds;
 
+    // EVENTS
+    event CollateralDeposited(address indexed user, address indexed token, uint256 amountDeposited);
+    event CollateralRedeemed(address indexed redeemedFrom, address indexed redeemedTo, address indexed token, uint256 amountRedeemed);
+
     DecentralisedStablecoin private immutable i_dsc;
 
     // MODIFERS
@@ -71,6 +75,7 @@ contract DSCEngine {
 
     function mintDsc(uint256 amountDscToMint) public moreThanZero(amountDscToMint) {
         s_userDscMinted[msg.sender] += amountDscToMint;
+        _revertIfHealthFactorIsBroken(msg.sender);
         bool success = i_dsc.mint(msg.sender, amountDscToMint);
         if (!success) {
             revert DSCEngine__MintFailed();
@@ -79,6 +84,7 @@ contract DSCEngine {
 
     function burnDsc(uint256 amountDscToBurn) public moreThanZero(amountDscToBurn) {
         _burnDsc(amountDscToBurn, msg.sender, msg.sender);
+        _revertIfHealthFactorIsBroken(msg.sender);
     }
 
     function redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem)
@@ -86,6 +92,7 @@ contract DSCEngine {
         moreThanZero(amountToRedeem)
     {
         _redeemCollateral(tokenCollateralAddress, amountToRedeem, msg.sender, msg.sender);
+        _revertIfHealthFactorIsBroken(msg.sender);
     }
 
     function redeemCollateralForDsc(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountToBurn)
@@ -97,7 +104,7 @@ contract DSCEngine {
 
     // HEALTH FACTOR FUNCTIONS
 
-    function revertIfHealthFactorIsBroken(address user) internal view {
+    function _revertIfHealthFactorIsBroken(address user) internal view {
         // stages in fetching heath factor:
         // 1. pass the user address we are trying to calculate the health factor for
         // 2. this function gets the account information, including the totalDscMinted and collateralValueInUsd
