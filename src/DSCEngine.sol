@@ -14,12 +14,14 @@ contract DSCEngine {
     error DSCEngine__BurnFailed();
     error DSCEngine_RedeemFailed();
     error DSCEngine__MustBeMoreThanZero();
+    error DSCEngine__BrokenHealthFactor(uint256 healthFactor);
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant LIQUIDATION_BONUS = 10;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
 
     address[] private s_collateralTokenAddresses;
     mapping(address user => mapping(address token => uint256 amount)) private s_userCollateralDepositted;
@@ -95,11 +97,23 @@ contract DSCEngine {
 
     // HEALTH FACTOR FUNCTIONS
 
-    function revertIfHealthFactorIsBroken() public {}
+    function revertIfHealthFactorIsBroken(address user) internal view {
+        // stages in fetching heath factor:
+        // 1. pass the user address we are trying to calculate the health factor for
+        // 2. this function gets the account information, including the totalDscMinted and collateralValueInUsd
+        // 3. this gets passed to the _calculateHealthFactor function, which contains:
+        //          if (totalDscMinted == 0){
+        //              return type(uint256).max;
+        //          }
+                    // uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+                    // return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted; 
 
-    function _healthFactor(address user) private view returns(uint256) {
-        (totalDscMinted, collateralValueInUsd) = _getAccountInformation(user);
-        return _calculateHealthFactor(totalDscMinted, collateralValueInUsd)
+        uint256 userHealthFactor = _healthFactor(user);
+        // we now have a health factor
+        if (userHealthFactor < MIN_HEALTH_FACTOR){
+            // if this health factor is below 1e18, it is broken, and reverts
+            revert DSCEngine__BrokenHealthFactor(userHealthFactor);
+        }
     }
 
     function calculateHealthFactor(uint256 totalDscMinted, uint256 collateralValueInUsd) public view returns(uint256){
@@ -172,5 +186,10 @@ contract DSCEngine {
         }
         uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
+    }
+
+    function _healthFactor(address user) private view returns(uint256) {
+        (totalDscMinted, collateralValueInUsd) = _getAccountInformation(user);
+        return _calculateHealthFactor(totalDscMinted, collateralValueInUsd)
     }
 }
