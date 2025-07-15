@@ -26,4 +26,30 @@ contract DSCEngineTest is Test {
         (ethUsdPriceFeed, btcUsdPriceFeed, weth,,) = config.activeNetworkConfig();
         ERC20Mock(weth).mint(user, STARTING_ERC20_BALANCE);
     }
+
+    // GETTER TESTS
+
+    function testGetPrecision() public view {
+        assertEq(dsce.getPrecision(), 1e18);
+    }
+
+    function testGetAdditionalFeedPrecision() public view {
+        assertEq(dsce.getAdditionalFeedPrecision(), 1e10);
+    }
+
+    function testGetMinHealthFactor() public view {
+        assertEq(dsce.getMinHealthFactor(), 1e18);
+    }
+
+    function testGetLiquidationPrecision() public view {
+        assertEq(dsce.getLiquidationPrecision(), 100);
+    }
+
+    function testGetLiquidationThreshold() public view {
+        assertEq(dsce.getLiquidationThreshold(), 50);
+    }
+
+    function testGetLiquidationBonus() public view {
+        assertEq(dsce.getLiquidationBonus(), 10);
+    }
 }

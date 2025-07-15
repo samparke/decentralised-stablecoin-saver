@@ -18,12 +18,12 @@ contract DSCEngine {
     error DSCEngine__HealthFactorIsGood();
     error DSCEngine__HealthFactorHasNotImproved();
 
-    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
-    uint256 private constant PRECISION = 1e18;
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10; // 1 followed by 10 zeros
+    uint256 private constant PRECISION = 1e18; // 1 followed by 18 zeros
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant LIQUIDATION_BONUS = 10;
-    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18; // 1 followed by 18 zeros
 
     address[] private s_collateralTokenAddresses;
     mapping(address user => mapping(address token => uint256 amount)) private s_userCollateralDepositted;
