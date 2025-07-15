@@ -17,4 +17,18 @@ contract DecentralisedStablecoinTest is Test {
         uint256 balance = dsc.balanceOf(msg.sender);
         assertEq(balance, 0);
     }
+
+    // MINT FUNCTIONS
+    function testMint() public {
+        bool mintSuccess = dsc.mint(msg.sender, 1 ether);
+        uint256 balance = dsc.balanceOf(msg.sender);
+
+        assertTrue(mintSuccess);
+        assertEq(balance, 1 ether);
+    }
+
+    function testMintRevertsWithZero() public {
+        vm.expectRevert();
+        dsc.mint(msg.sender, 0 ether);
+    }
 }
