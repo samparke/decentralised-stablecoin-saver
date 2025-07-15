@@ -28,7 +28,25 @@ contract DecentralisedStablecoinTest is Test {
     }
 
     function testMintRevertsWithZero() public {
-        vm.expectRevert();
+        vm.expectRevert(DecentralisedStablecoin.DecentralisedStablecoin__NeedsMoreThanZero.selector);
         dsc.mint(msg.sender, 0 ether);
+    }
+
+    // BURN FUNCTION
+    function testBurn() public {
+        dsc.mint(address(this), 1 ether);
+        dsc.burn(0.5 ether);
+        uint256 balance = dsc.balanceOf(address(this));
+        assertEq(balance, 0.5 ether);
+    }
+
+    function testBurnRevertsWithZero() public {
+        vm.expectRevert(DecentralisedStablecoin.DecentralisedStablecoin__NeedsMoreThanZero.selector);
+        dsc.burn(0);
+    }
+
+    function testBurnRevertsIfInsufficentBalance() public {
+        vm.expectRevert(DecentralisedStablecoin.DecentralisedStablecoin__BurnMoreThanBalance.selector);
+        dsc.burn(1 ether);
     }
 }
