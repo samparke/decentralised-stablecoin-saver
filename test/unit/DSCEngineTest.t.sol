@@ -29,6 +29,15 @@ contract DSCEngineTest is Test {
         ERC20Mock(weth).mint(user, STARTING_ERC20_BALANCE);
     }
 
+    // MODIFERS
+    modifier depositCollateral() {
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dsce), amountCollateral);
+        dsce.depositCollateral(weth, amountCollateral);
+        vm.stopPrank();
+        _;
+    }
+
     // GETTER TESTS
 
     function testGetPrecision() public view {
@@ -56,7 +65,7 @@ contract DSCEngineTest is Test {
     }
 
     // DEPOSIT COLLATERAL TESTS
-    function testDepositCollateralMoreThanZeroRevert() public {
+    function testDepositCollateralMustBeMoreThanZeroRevert() public {
         vm.prank(user);
         vm.expectRevert();
         dsce.depositCollateral(weth, 0);
@@ -72,13 +81,18 @@ contract DSCEngineTest is Test {
     }
 
     // MINT TEST
-    function testMintDscSuccess() public {
+    function testMintDscSuccess() public depositCollateral {
         vm.startPrank(user);
-        ERC20Mock(weth).approve(address(dsce), amountCollateral);
-        dsce.depositCollateral(weth, amountCollateral);
         dsce.mintDsc(amountMint);
         uint256 dscBalanceOfUser = dsc.balanceOf(user);
         vm.stopPrank();
         assertEq(dscBalanceOfUser, amountMint);
+    }
+
+    function testMintMustBeMoreThanZeroRevert() public depositCollateral {
+        vm.startPrank(user);
+        vm.expectRevert(DSCEngine.DSCEngine__MustBeMoreThanZero.selector);
+        dsce.mintDsc(0);
+        vm.stopPrank();
     }
 }

@@ -149,9 +149,9 @@ contract DSCEngine {
         for (uint256 i = 0; i < s_collateralTokenAddresses.length; i++) {
             address token = s_collateralTokenAddresses[i];
             uint256 amount = s_userCollateralDepositted[user][token];
-            collateralValue = getUsdValue(token, amount);
-            return collateralValue;
+            collateralValue += getUsdValue(token, amount);
         }
+        return collateralValue;
     }
 
     function getUsdValue(address token, uint256 amount) public view returns (uint256) {
