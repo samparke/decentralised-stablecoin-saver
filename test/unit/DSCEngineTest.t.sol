@@ -19,6 +19,8 @@ contract DSCEngineTest is Test {
     address weth;
     address public user = makeAddr("user");
     uint256 STARTING_ERC20_BALANCE = 10 ether;
+    uint256 amountCollateral = 10 ether;
+    uint256 amountMint = 100 ether;
 
     function setUp() public {
         deployer = new DeployDSC();
@@ -51,5 +53,32 @@ contract DSCEngineTest is Test {
 
     function testGetLiquidationBonus() public view {
         assertEq(dsce.getLiquidationBonus(), 10);
+    }
+
+    // DEPOSIT COLLATERAL TESTS
+    function testDepositCollateralMoreThanZeroRevert() public {
+        vm.prank(user);
+        vm.expectRevert();
+        dsce.depositCollateral(weth, 0);
+    }
+
+    function testDepositCollateralSuccessfullyTransferedToDsce() public {
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dsce), amountCollateral);
+        dsce.depositCollateral(weth, amountCollateral);
+        uint256 contractBalance = ERC20Mock(weth).balanceOf(address(dsce));
+        vm.stopPrank();
+        assertEq(contractBalance, amountCollateral);
+    }
+
+    // MINT TEST
+    function testMintDscSuccess() public {
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dsce), amountCollateral);
+        dsce.depositCollateral(weth, amountCollateral);
+        dsce.mintDsc(amountMint);
+        uint256 dscBalanceOfUser = dsc.balanceOf(user);
+        vm.stopPrank();
+        assertEq(dscBalanceOfUser, amountMint);
     }
 }
