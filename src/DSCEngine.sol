@@ -270,4 +270,12 @@ contract DSCEngine {
     function getMinHealthFactor() public pure returns (uint256) {
         return MIN_HEALTH_FACTOR;
     }
+
+    function getUserCollateralDeposited(address user, address token) public view returns (uint256) {
+        return (s_userCollateralDepositted[user][token]);
+    }
+
+    function getUserDscMinted(address user) public view returns (uint256) {
+        return s_userDscMinted[user];
+    }
 }

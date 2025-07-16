@@ -21,6 +21,7 @@ contract DSCEngineTest is Test {
     uint256 STARTING_ERC20_BALANCE = 10 ether;
     uint256 amountCollateral = 10 ether;
     uint256 amountMint = 100 ether;
+    uint256 amountBurn = 1 ether;
 
     function setUp() public {
         deployer = new DeployDSC();
@@ -80,7 +81,7 @@ contract DSCEngineTest is Test {
         assertEq(contractBalance, amountCollateral);
     }
 
-    // MINT TEST
+    // MINT TESTS
     function testMintDscSuccess() public depositCollateral {
         vm.startPrank(user);
         dsce.mintDsc(amountMint);
@@ -94,5 +95,42 @@ contract DSCEngineTest is Test {
         vm.expectRevert(DSCEngine.DSCEngine__MustBeMoreThanZero.selector);
         dsce.mintDsc(0);
         vm.stopPrank();
+    }
+
+    function testMintUserMintedMappingIncreases() public depositCollateral {
+        uint256 dscMintedBefore = dsce.getUserDscMinted(address(user));
+        vm.startPrank(user);
+        dsce.mintDsc(amountMint);
+        vm.stopPrank();
+        uint256 dscMintedAfter = dsce.getUserDscMinted(address(user));
+        assert(dscMintedAfter > dscMintedBefore);
+    }
+
+    // BURN TESTS
+    function testBurnSuccessUserDscDecreases() public depositCollateral {
+        vm.startPrank(user);
+        dsce.mintDsc(amountMint);
+        uint256 dscBalanceBefore = dsc.balanceOf(address(user));
+        dsc.approve(address(dsce), amountBurn);
+        dsce.burnDsc(amountBurn);
+        vm.stopPrank();
+        uint256 dscBalanceAfter = dsc.balanceOf(address(user));
+        assert(dscBalanceBefore > dscBalanceAfter);
+    }
+
+    function testBurnMustBeMoreThanZeroRevert() public {
+        vm.expectRevert(DSCEngine.DSCEngine__MustBeMoreThanZero.selector);
+        dsce.burnDsc(0);
+    }
+
+    function testBurnUserMintedMappingDecreases() public depositCollateral {
+        vm.startPrank(user);
+        dsce.mintDsc(amountMint);
+        uint256 dscMintedBefore = dsce.getUserDscMinted(address(user));
+        dsc.approve(address(dsce), amountBurn);
+        dsce.burnDsc(amountBurn);
+        vm.stopPrank();
+        uint256 dscMintedAfter = dsce.getUserDscMinted(address(user));
+        assert(dscMintedBefore > dscMintedAfter);
     }
 }
