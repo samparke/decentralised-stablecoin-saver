@@ -9,6 +9,7 @@ import {DeployDSC} from "../../script/DeployDSC.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 import {MockMintFail} from "../mocks/MockMintFail.sol";
+import {MockBurnTransferFromFail} from "../mocks/MockBurnTransferFromFail.sol";
 
 contract DSCEngineTest is Test {
     DecentralisedStablecoin dsc;
@@ -153,5 +154,24 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
         uint256 dscMintedAfter = dsce.getUserDscMinted(address(user));
         assert(dscMintedBefore > dscMintedAfter);
+    }
+
+    function testBurnFail() public {
+        MockBurnTransferFromFail mockToken = new MockBurnTransferFromFail();
+        tokenAddresses = [weth];
+        priceFeedAddresses = [ethUsdPriceFeed];
+        address owner = makeAddr("owner");
+        vm.prank(owner);
+        DSCEngine mockDsce = new DSCEngine(tokenAddresses, priceFeedAddresses, address(mockToken));
+        mockToken.transferOwnership(address(mockDsce));
+
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(mockDsce), amountCollateral);
+        mockDsce.depositCollateral(weth, amountCollateral);
+        mockDsce.mintDsc(amountMint);
+        mockToken.approve(address(mockDsce), amountBurn);
+        vm.expectRevert(DSCEngine.DSCEngine__BurnFailed.selector);
+        mockDsce.burnDsc(amountBurn);
+        vm.stopPrank();
     }
 }
