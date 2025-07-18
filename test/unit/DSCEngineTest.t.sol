@@ -11,6 +11,7 @@ import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 import {MockMintFail} from "../mocks/MockMintFail.sol";
 import {MockBurnTransferFromFail} from "../mocks/MockBurnTransferFromFail.sol";
 import {MockTransferFail} from "../mocks/MockTransferFail.sol";
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
 
 contract DSCEngineTest is Test {
     DecentralisedStablecoin dsc;
@@ -41,6 +42,14 @@ contract DSCEngineTest is Test {
         vm.startPrank(user);
         ERC20Mock(weth).approve(address(dsce), amountCollateral);
         dsce.depositCollateral(weth, amountCollateral);
+        vm.stopPrank();
+        _;
+    }
+
+    modifier depositCollateralAndMintDsc() {
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dsce), amountCollateral);
+        dsce.depositCollateralAndMintDsc(weth, amountCollateral, amountMint);
         vm.stopPrank();
         _;
     }
@@ -129,6 +138,17 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
     }
 
+    function testRevertBreaksHealthFactorMint() public {
+        (, int256 price,,,) = MockV3Aggregator(ethUsdPriceFeed).latestRoundData();
+        amountMint = (amountCollateral * (uint256(price) * dsce.getAdditionalFeedPrecision())) / dsce.getPrecision();
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dsce), amountCollateral);
+        uint256 expectedHealthFactor = dsce.calculateHealthFactor(amountMint, dsce.getUsdValue(weth, amountCollateral));
+        vm.expectRevert(abi.encodeWithSelector(DSCEngine.DSCEngine__BrokenHealthFactor.selector, expectedHealthFactor));
+        dsce.depositCollateralAndMintDsc(weth, amountCollateral, amountMint);
+        vm.stopPrank();
+    }
+
     // BURN TESTS
     function testBurnSuccessUserDscDecreases() public depositCollateral {
         vm.startPrank(user);
@@ -173,6 +193,15 @@ contract DSCEngineTest is Test {
         mockToken.approve(address(mockDsce), amountBurn);
         vm.expectRevert(DSCEngine.DSCEngine__BurnFailed.selector);
         mockDsce.burnDsc(amountBurn);
+        vm.stopPrank();
+    }
+
+    function testBurnMoreThanUserHas() public {
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dsce), amountCollateral);
+        dsce.depositCollateralAndMintDsc(weth, amountCollateral, amountMint);
+        vm.expectRevert();
+        dsce.burnDsc(1);
         vm.stopPrank();
     }
 
@@ -254,5 +283,22 @@ contract DSCEngineTest is Test {
 
         vm.expectRevert(DSCEngine.DSCEngine__TokenAddressesAndPriceFeedAddressesDoNotMatch.selector);
         new DSCEngine(tokenAddresses, priceFeedAddresses, address(dsc));
+    }
+
+    // HEALTH FACTOR TESTS
+
+    function testHealthFactorWorkingCorrectly() public depositCollateralAndMintDsc {
+        uint256 expectedHealthFactor = 100 ether;
+        uint256 actualHealthFactor = dsce.getHealthFactor(user);
+        assertEq(expectedHealthFactor, actualHealthFactor);
+    }
+
+    function testHealthFactorCanGoBelowOne() public depositCollateralAndMintDsc {
+        // price of eth drops dramatically
+        int256 updatedEthPrice = 15e8;
+        MockV3Aggregator(ethUsdPriceFeed).updateAnswer(updatedEthPrice);
+        // get health factor according to this new price, which would heavily reduce the users heath factor
+        uint256 healthFactor = dsce.getHealthFactor(user);
+        assertEq(healthFactor, 0.75 ether);
     }
 }

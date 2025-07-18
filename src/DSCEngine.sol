@@ -278,4 +278,8 @@ contract DSCEngine {
     function getUserDscMinted(address user) public view returns (uint256) {
         return s_userDscMinted[user];
     }
+
+    function getHealthFactor(address user) public view returns (uint256) {
+        return _healthFactor(user);
+    }
 }
