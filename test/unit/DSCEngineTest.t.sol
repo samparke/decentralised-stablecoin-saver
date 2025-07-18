@@ -222,4 +222,26 @@ contract DSCEngineTest is Test {
         uint256 endingUserCollateralDeposited = dsce.getUserCollateralDeposited(user, weth);
         assert(startingUserCollateralDeposited > endingUserCollateralDeposited);
     }
+
+    // REDEEM COLLATERAL FOR DSC TESTS
+
+    function testRedeemCollateralAndBurnDscSuccess() public {
+        ERC20Mock(weth).mint(user, 100 ether);
+        vm.startPrank(user);
+
+        ERC20Mock(weth).approve(address(dsce), 100 ether);
+        dsce.depositCollateral(weth, 50 ether);
+
+        dsce.mintDsc(amountMint);
+        uint256 startingUserCollateralBalance = ERC20Mock(weth).balanceOf(user);
+        uint256 startingUserDscBalance = dsc.balanceOf(user);
+        dsc.approve(address(dsce), amountBurn);
+        dsce.redeemCollateralForDsc(weth, amountCollateral, amountBurn);
+        vm.stopPrank();
+        uint256 endingUserCollateralBalance = ERC20Mock(weth).balanceOf(user);
+        uint256 endingUserDscBalance = dsc.balanceOf(user);
+
+        assert(endingUserCollateralBalance > startingUserCollateralBalance);
+        assert(startingUserDscBalance > endingUserDscBalance);
+    }
 }
