@@ -244,4 +244,15 @@ contract DSCEngineTest is Test {
         assert(endingUserCollateralBalance > startingUserCollateralBalance);
         assert(startingUserDscBalance > endingUserDscBalance);
     }
+
+    // CONSTRUCTOR TESTS
+
+    function testDscEngineRevertIfTokenAddressesDoesNotMatchPriceFeedAddressLength() public {
+        tokenAddresses.push(weth);
+        priceFeedAddresses.push(ethUsdPriceFeed);
+        priceFeedAddresses.push(btcUsdPriceFeed);
+
+        vm.expectRevert(DSCEngine.DSCEngine__TokenAddressesAndPriceFeedAddressesDoNotMatch.selector);
+        new DSCEngine(tokenAddresses, priceFeedAddresses, address(dsc));
+    }
 }
