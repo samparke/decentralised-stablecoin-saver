@@ -10,6 +10,7 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 import {MockMintFail} from "../mocks/MockMintFail.sol";
 import {MockBurnTransferFromFail} from "../mocks/MockBurnTransferFromFail.sol";
+import {MockTransferFail} from "../mocks/MockTransferFail.sol";
 
 contract DSCEngineTest is Test {
     DecentralisedStablecoin dsc;
@@ -173,5 +174,52 @@ contract DSCEngineTest is Test {
         vm.expectRevert(DSCEngine.DSCEngine__BurnFailed.selector);
         mockDsce.burnDsc(amountBurn);
         vm.stopPrank();
+    }
+
+    // REDEEM COLLATERAL TESTS
+
+    function testRedeemMustBeMoreThanZeroRevert() public {
+        vm.expectRevert(DSCEngine.DSCEngine__MustBeMoreThanZero.selector);
+        dsce.redeemCollateral(weth, 0);
+    }
+
+    function testRedeemCollateralUserWethBalanceIncreasesAndDscEngineBalanceIsCorrect() public depositCollateral {
+        uint256 startingUserBalance = ERC20Mock(weth).balanceOf(user);
+        vm.startPrank(user);
+        dsce.redeemCollateral(weth, 1 ether);
+        vm.stopPrank();
+        uint256 endingUserBalance = ERC20Mock(weth).balanceOf(user);
+        uint256 endingContractBalance = ERC20Mock(weth).balanceOf(address(dsce));
+        assert(endingUserBalance > startingUserBalance);
+        assertEq(endingContractBalance, 9 ether);
+    }
+
+    function testRedeemTransferFail() public {
+        address owner = msg.sender;
+        vm.prank(owner);
+        MockTransferFail mockToken = new MockTransferFail();
+        tokenAddresses = [address(mockToken)];
+        priceFeedAddresses = [ethUsdPriceFeed];
+        vm.startPrank(owner);
+        DSCEngine mockDsce = new DSCEngine(tokenAddresses, priceFeedAddresses, address(mockToken));
+        mockToken.mint(user, amountMint);
+        mockToken.transferOwnership(address(mockDsce));
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        ERC20Mock(address(mockToken)).approve(address(mockDsce), amountCollateral);
+        mockDsce.depositCollateral(address(mockToken), amountCollateral);
+        vm.expectRevert(DSCEngine.DSCEngine_RedeemFailed.selector);
+        mockDsce.redeemCollateral(address(mockToken), amountCollateral);
+        vm.stopPrank();
+    }
+
+    function testRedeemUserCollateralDepositedDecreases() public depositCollateral {
+        vm.startPrank(user);
+        uint256 startingUserCollateralDeposited = dsce.getUserCollateralDeposited(user, weth);
+        dsce.redeemCollateral(weth, 1 ether);
+        vm.stopPrank();
+        uint256 endingUserCollateralDeposited = dsce.getUserCollateralDeposited(user, weth);
+        assert(startingUserCollateralDeposited > endingUserCollateralDeposited);
     }
 }

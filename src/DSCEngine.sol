@@ -26,7 +26,7 @@ contract DSCEngine {
     uint256 private constant MIN_HEALTH_FACTOR = 1e18; // 1 followed by 18 zeros
 
     address[] private s_collateralTokenAddresses;
-    mapping(address user => mapping(address token => uint256 amount)) private s_userCollateralDepositted;
+    mapping(address user => mapping(address token => uint256 amount)) private s_userCollateralDeposited;
     mapping(address user => uint256 dscMinted) private s_userDscMinted;
     mapping(address token => address priceFeed) private s_tokenPriceFeeds;
 
@@ -63,7 +63,7 @@ contract DSCEngine {
         public
         moreThanZero(amountToDeposit)
     {
-        s_userCollateralDepositted[msg.sender][tokenCollateralAddress] += amountToDeposit;
+        s_userCollateralDeposited[msg.sender][tokenCollateralAddress] += amountToDeposit;
         emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountToDeposit);
         bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountToDeposit);
         if (!success) {
@@ -148,7 +148,7 @@ contract DSCEngine {
     function getAccountCollateralValue(address user) public view returns (uint256 collateralValue) {
         for (uint256 i = 0; i < s_collateralTokenAddresses.length; i++) {
             address token = s_collateralTokenAddresses[i];
-            uint256 amount = s_userCollateralDepositted[user][token];
+            uint256 amount = s_userCollateralDeposited[user][token];
             collateralValue += getUsdValue(token, amount);
         }
         return collateralValue;
@@ -210,7 +210,7 @@ contract DSCEngine {
     function _redeemCollateral(address tokenCollateralAddress, uint256 amountToRedeem, address from, address to)
         private
     {
-        s_userCollateralDepositted[from][tokenCollateralAddress] -= amountToRedeem;
+        s_userCollateralDeposited[from][tokenCollateralAddress] -= amountToRedeem;
         emit CollateralRedeemed(from, to, tokenCollateralAddress, amountToRedeem);
         // transfer instead of transferFrom function as collateral is already stored within this contract
         bool success = IERC20(tokenCollateralAddress).transfer(to, amountToRedeem);
@@ -272,7 +272,7 @@ contract DSCEngine {
     }
 
     function getUserCollateralDeposited(address user, address token) public view returns (uint256) {
-        return (s_userCollateralDepositted[user][token]);
+        return s_userCollateralDeposited[user][token];
     }
 
     function getUserDscMinted(address user) public view returns (uint256) {
