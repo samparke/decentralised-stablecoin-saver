@@ -22,10 +22,12 @@ contract DSCEngineTest is Test {
     address btcUsdPriceFeed;
     address weth;
     address public user = makeAddr("user");
+    address public liquidator = makeAddr("liquidator");
     uint256 STARTING_ERC20_BALANCE = 10 ether;
     uint256 amountCollateral = 10 ether;
     uint256 amountMint = 100 ether;
     uint256 amountBurn = 1 ether;
+    uint256 collateralToCover = 20 ether;
 
     address[] tokenAddresses;
     address[] priceFeedAddresses;
@@ -300,5 +302,24 @@ contract DSCEngineTest is Test {
         // get health factor according to this new price, which would heavily reduce the users heath factor
         uint256 healthFactor = dsce.getHealthFactor(user);
         assertEq(healthFactor, 0.75 ether);
+    }
+
+    // LIQUIDATION TESTS
+
+    function testUserCannotBeLiquidatedWithGoodHealthFactor() public depositCollateralAndMintDsc {
+        // mint the liquidator 20 ether to allow them to mint dsc
+        ERC20Mock(weth).mint(liquidator, collateralToCover);
+        vm.startPrank(liquidator);
+        // approve the dsce 20 ether
+        ERC20Mock(weth).approve(address(dsce), collateralToCover);
+        // deposit the 20 ether and mint dsc
+        dsce.depositCollateralAndMintDsc(weth, collateralToCover, amountMint);
+        // approve the dsce the dsc just minted
+        // this is so they have dsc to burn when liquidating the user
+        dsc.approve(address(dsce), amountMint);
+        // but the user has a good health factor
+        vm.expectRevert(DSCEngine.DSCEngine__HealthFactorIsGood.selector);
+        dsce.liquidate(weth, user, amountMint);
+        vm.stopPrank();
     }
 }
