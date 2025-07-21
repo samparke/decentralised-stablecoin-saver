@@ -56,7 +56,10 @@ contract SavingAccount is Ownable {
 
     function _accrueInterest() internal {}
 
-    function _calculateUserInterestAccumulatedSinceLastUpdate() internal {}
+    function _calculateUserInterestAccumulatedSinceLastUpdate(address _user) internal view returns (uint256 interest) {
+        uint256 timeElapsed = block.timestamp - s_userSinceLastUpdated[_user];
+        interest = PRECISION_FACTOR + (s_interestRate * timeElapsed);
+    }
 
     // getter functions
 
