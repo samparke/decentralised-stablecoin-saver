@@ -8,6 +8,13 @@ import {DecentralisedStablecoin} from "../src/DecentralisedStablecoin.sol";
 import {DSCEngine} from "../src/DSCEngine.sol";
 
 contract SavingAccount is Ownable {
+    // state variables
+    uint256 s_interestRate;
+    mapping(address user => uint256 interestRate) private s_userInterestRate;
+
+    DecentralisedStablecoin private immutable i_dsc;
+    DSCEngine private immutable i_engine;
+
     constructor() Ownable(msg.sender) {}
 
     function deposit(uint256 _amount) external payable {}
@@ -19,4 +26,14 @@ contract SavingAccount is Ownable {
     function _accrueInterest() internal {}
 
     function _calculateUserInterestAccumulatedSinceLastUpdate() internal {}
+
+    // getter functions
+
+    function getUserInterestRate(address user) external view returns (uint256) {
+        return s_userInterestRate[user];
+    }
+
+    function getContractInterestRate() external view returns (uint256) {
+        return s_interestRate;
+    }
 }
