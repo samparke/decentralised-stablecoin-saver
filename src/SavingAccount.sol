@@ -22,6 +22,9 @@ contract SavingAccount is Ownable {
     DecentralisedStablecoin private immutable i_dsc;
     DSCEngine private immutable i_engine;
 
+    // events
+    event UpdatedInterestRate(uint256 newInterestRate);
+
     modifier moreThanZero(uint256 _amount) {
         if (_amount == 0) {
             revert SavingAccount__MustBeMoreThanZero();
@@ -33,6 +36,8 @@ contract SavingAccount is Ownable {
 
     function deposit(uint256 _amount) external moreThanZero {
         s_amountDscUserDeposited[msg.sender] += _amount;
+        // need to address multiple deposits, if a user deposits after an initial deposit, it will cause an error in interest calculation
+        s_userSinceLastUpdated[msg.sender] = block.timestamp;
         if (i_dsc.balanceOf(msg.sender) != _amount) {
             revert SavingAccount__InsufficientDscBalance();
         }
@@ -44,7 +49,10 @@ contract SavingAccount is Ownable {
 
     function redeem(uint256 _amount) external moreThanZero {}
 
-    function setInterestRate() external onlyOwner {}
+    function setInterestRate(uint256 _newInterestRate) external onlyOwner {
+        s_interestRate = _newInterestRate;
+        emit UpdatedInterestRate(_newInterestRate);
+    }
 
     function _accrueInterest() internal {}
 
