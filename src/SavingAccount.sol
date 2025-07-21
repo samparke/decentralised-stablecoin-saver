@@ -8,18 +8,30 @@ import {DecentralisedStablecoin} from "../src/DecentralisedStablecoin.sol";
 import {DSCEngine} from "../src/DSCEngine.sol";
 
 contract SavingAccount is Ownable {
-    // state variables
-    uint256 s_interestRate;
-    mapping(address user => uint256 interestRate) private s_userInterestRate;
+    // errors
+    error SavingAccount__MustBeMoreThanZero();
 
+    // state variables
+    uint256 private s_interestRate = (5 * PRECISION_FACTOR) / 1e8;
+    mapping(address user => uint256 interestRate) private s_userInterestRate;
+    mapping(address user => uint256 time) private s_userSinceLastUpdated;
+
+    uint256 private constant PRECISION_FACTOR = 1e18;
     DecentralisedStablecoin private immutable i_dsc;
     DSCEngine private immutable i_engine;
 
+    modifier moreThanZero(uint256 _amount) {
+        if (_amount == 0) {
+            revert SavingAccount__MustBeMoreThanZero();
+        }
+        _;
+    }
+
     constructor() Ownable(msg.sender) {}
 
-    function deposit(uint256 _amount) external payable {}
+    function deposit(uint256 _amount) external moreThanZero {}
 
-    function redeem(uint256 _amount) external {}
+    function redeem(uint256 _amount) external moreThanZero {}
 
     function setInterestRate() external onlyOwner {}
 
@@ -35,5 +47,9 @@ contract SavingAccount is Ownable {
 
     function getContractInterestRate() external view returns (uint256) {
         return s_interestRate;
+    }
+
+    function getUserLastUpdate(address user) external view returns (uint256) {
+        return s_userSinceLastUpdated[user];
     }
 }
