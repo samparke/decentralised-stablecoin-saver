@@ -41,7 +41,7 @@ contract SavingAccount is Ownable {
         //     _amount = i_dsc.balanceOf(msg.sender);
         // }
 
-        if (i_dsc.balanceOf(msg.sender) != _amount) {
+        if (i_dsc.balanceOf(msg.sender) < _amount) {
             revert SavingAccount__InsufficientDscBalance();
         }
         s_amountDscUserDeposited[msg.sender] += _amount;

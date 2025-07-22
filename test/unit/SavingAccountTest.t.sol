@@ -14,20 +14,10 @@ contract SavingAccountTest is Test {
     address user = makeAddr("user");
     address user2 = makeAddr("user2");
     address owner = makeAddr("owner");
-    uint256 constant STARTING_USER_BALANCE = 100 ether;
-    uint256 constant STARTING_SAVER_BALANCE = 1000 ether;
 
     function setUp() public {
         dsc = new DecentralisedStablecoin();
         saver = new SavingAccount(dsc);
-        dsc.mint(user, STARTING_USER_BALANCE);
-        dsc.mint(address(saver), STARTING_SAVER_BALANCE);
-    }
-
-    function testUserInitialDscBalance() public view {
-        uint256 userBalance = dsc.balanceOf(user);
-        console.log(userBalance);
-        assertEq(userBalance, 100 ether);
     }
 
     // deposit tests
@@ -36,21 +26,25 @@ contract SavingAccountTest is Test {
         saver.deposit(0);
     }
 
-    function testDepositUserMappingAndContractBalanceIncreases() public {
+    function testDepositUserMappingAndContractBalanceIncreases(uint256 amount) public {
+        amount = bound(amount, 1e5, type(uint96).max);
+        dsc.mint(user, amount);
         vm.startPrank(user);
-        dsc.approve(address(saver), STARTING_USER_BALANCE);
-        saver.deposit(STARTING_USER_BALANCE);
+        dsc.approve(address(saver), amount);
+        saver.deposit(amount);
         vm.stopPrank();
         uint256 contractBalance = dsc.balanceOf(address(saver));
-        assertEq(saver.getUserDscDeposited(user), STARTING_USER_BALANCE);
-        assertEq(contractBalance, STARTING_USER_BALANCE);
+        assertEq(saver.getUserDscDeposited(user), amount);
+        assertEq(contractBalance, amount);
     }
 
-    function testDepositAmountMoreThanBalanceRevert() public {
+    function testDepositAmountMoreThanBalanceRevert(uint256 amount) public {
+        amount = bound(amount, 1e5, type(uint96).max);
+        dsc.mint(user, amount);
         vm.startPrank(user);
-        dsc.approve(address(saver), STARTING_USER_BALANCE + 1 ether);
+        dsc.approve(address(saver), amount + 1 ether);
         vm.expectRevert(SavingAccount.SavingAccount__InsufficientDscBalance.selector);
-        saver.deposit(STARTING_USER_BALANCE + 1 ether);
+        saver.deposit(amount + 1 ether);
         vm.stopPrank();
     }
 
@@ -79,26 +73,29 @@ contract SavingAccountTest is Test {
         saver.redeem(0);
     }
 
-    function testRedeemStraightAway() public {
+    function testRedeemStraightAway(uint256 amount) public {
+        amount = bound(amount, 1e5, type(uint96).max);
+        dsc.mint(user, amount);
+        dsc.mint(address(saver), (amount + amount));
         uint256 startingUserDscBalance = dsc.balanceOf(user);
         uint256 startingSaverBalance = dsc.balanceOf(address(saver));
         vm.startPrank(user);
-        dsc.approve(address(saver), STARTING_USER_BALANCE);
-        saver.deposit(STARTING_USER_BALANCE);
+        dsc.approve(address(saver), amount);
+        saver.deposit(amount);
         uint256 middleUserBalance = dsc.balanceOf(user);
         uint256 middleSaverBalance = dsc.balanceOf(address(saver));
-        saver.redeem(STARTING_USER_BALANCE);
+        saver.redeem(amount);
         uint256 endingUserBalance = dsc.balanceOf(user);
         uint256 endingSaverBalance = dsc.balanceOf(address(saver));
         vm.stopPrank();
 
-        assertEq(startingUserDscBalance, STARTING_USER_BALANCE);
-        assertEq(startingSaverBalance, STARTING_SAVER_BALANCE);
+        assertEq(startingUserDscBalance, amount);
+        assertEq(startingSaverBalance, amount + amount);
 
         assertEq(middleUserBalance, 0);
-        assertEq(middleSaverBalance, STARTING_SAVER_BALANCE + STARTING_USER_BALANCE);
+        assertEq(middleSaverBalance, amount + (amount + amount));
 
-        assertEq(endingSaverBalance, STARTING_SAVER_BALANCE);
-        assertEq(endingUserBalance, STARTING_USER_BALANCE);
+        assertEq(endingSaverBalance, amount + amount);
+        assertEq(endingUserBalance, amount);
     }
 }
