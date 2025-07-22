@@ -100,24 +100,26 @@ contract SavingAccountTest is Test {
         assertEq(endingUserBalance, amount);
     }
 
-    //     function testRedeemAfterTimeHasPassed(uint256 time, uint256 amount) public {
-    //         time = bound(time, 1000, type(uint96).max);
-    //         amount = bound(amount, 1e5, type(uint96).max);
+    function testRedeemAfterTimeHasPassed(uint256 time, uint256 amount) public {
+        time = bound(time, 1000, type(uint96).max);
+        amount = bound(amount, 1e5, type(uint96).max);
 
-    //         dsc.mint(user, amount);
-    //         uint256 startingUserDscBalance = dsc.balanceOf(user);
-    //         vm.startPrank(user);
-    //         dsc.approve(address(saver), amount);
-    //         saver.deposit(amount);
+        dsc.mint(user, amount);
+        uint256 startingUserDscBalance = dsc.balanceOf(user);
+        vm.startPrank(user);
+        dsc.approve(address(saver), amount);
+        saver.deposit(amount);
+        vm.stopPrank();
 
-    //         vm.warp(block.timestamp + time);
+        vm.warp(block.timestamp + time);
+        (uint256 principle, uint256 interest) = saver.calculateAccruedInterest(user);
+        dsc.mint(address(saver), principle + interest);
 
-    //         uint256 userBalanceAfterTime
-    //         saver.redeem(type(uint256).max);
-    //         console.log("user balance after redeem", dsc.balanceOf(user));
-    //         uint256 endingUserBalance = dsc.balanceOf(user);
-    //         vm.stopPrank();
+        vm.prank(user);
+        saver.redeem(type(uint256).max);
+        uint256 endingUserBalance = dsc.balanceOf(user);
 
-    //         assertGt(endingUserBalance, startingUserDscBalance);
-    //     }
+        assertGt(endingUserBalance, startingUserDscBalance);
+        assertEq(endingUserBalance, interest + principle);
+    }
 }
