@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.20;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {DecentralisedStablecoin} from "../src/DecentralisedStablecoin.sol";
 import {DSCEngine} from "../src/DSCEngine.sol";
@@ -12,6 +11,7 @@ contract SavingAccount is Ownable {
     error SavingAccount__MustBeMoreThanZero();
     error SavingAccount__InsufficientDscBalance();
     error SavingAccount__DepositFailed();
+    error SavingAccountCannotRedeemMoreThanBalance();
 
     // state variables
     uint256 private s_interestRate = (5 * PRECISION_FACTOR) / 1e8;
@@ -20,7 +20,6 @@ contract SavingAccount is Ownable {
 
     uint256 private constant PRECISION_FACTOR = 1e18;
     DecentralisedStablecoin private immutable i_dsc;
-    DSCEngine private immutable i_engine;
 
     // events
     event UpdatedInterestRate(uint256 newInterestRate);
@@ -32,22 +31,36 @@ contract SavingAccount is Ownable {
         _;
     }
 
-    constructor() Ownable(msg.sender) {}
+    constructor(DecentralisedStablecoin dsc) Ownable(msg.sender) {
+        i_dsc = dsc;
+    }
 
-    function deposit(uint256 _amount) external moreThanZero {
-        s_amountDscUserDeposited[msg.sender] += _amount;
-        // need to address multiple deposits, if a user deposits after an initial deposit, it will cause an error in interest calculation
-        s_userSinceLastUpdated[msg.sender] = block.timestamp;
+    function deposit(uint256 _amount) external moreThanZero(_amount) {
+        // if (_amount == type(uint256).max) {
+        //     _amount = i_dsc.balanceOf(msg.sender);
+        // }
+
         if (i_dsc.balanceOf(msg.sender) != _amount) {
             revert SavingAccount__InsufficientDscBalance();
         }
-        (bool success,) = i_dsc.transferFrom(msg.sender, address(this), _amount);
+        s_amountDscUserDeposited[msg.sender] += _amount;
+        // need to address multiple deposits, if a user deposits after an initial deposit, it will cause an error in interest calculation
+        s_userSinceLastUpdated[msg.sender] = block.timestamp;
+        (bool success) = i_dsc.transferFrom(msg.sender, address(this), _amount);
         if (!success) {
             revert SavingAccount__DepositFailed();
         }
     }
 
-    function redeem(uint256 _amount) external moreThanZero {}
+    function redeem(uint256 _amount) external moreThanZero(_amount) {
+        if (s_amountDscUserDeposited[msg.sender] >= _amount) {
+            revert SavingAccountCannotRedeemMoreThanBalance();
+        }
+        if (_amount == type(uint256).max) {
+            _amount = i_dsc.balanceOf(msg.sender);
+        }
+        uint256 dscToSendUser = _calculateUserInterestAccumulatedSinceLastUpdate(msg.sender) * _amount;
+    }
 
     function setInterestRate(uint256 _newInterestRate) external onlyOwner {
         s_interestRate = _newInterestRate;
@@ -62,10 +75,6 @@ contract SavingAccount is Ownable {
     }
 
     // getter functions
-
-    function getUserInterestRate(address user) external view returns (uint256) {
-        return s_userInterestRate[user];
-    }
 
     function getContractInterestRate() external view returns (uint256) {
         return s_interestRate;
