@@ -11,7 +11,8 @@ contract SavingAccount is Ownable {
     error SavingAccount__MustBeMoreThanZero();
     error SavingAccount__InsufficientDscBalance();
     error SavingAccount__DepositFailed();
-    error SavingAccountCannotRedeemMoreThanBalance();
+    error SavingAccount__RedeemFailed();
+    error SavingAccount__SavingAccountDoesNotHaveSufficientBalanceToTransfer();
 
     // state variables
     uint256 private s_interestRate = (5 * PRECISION_FACTOR) / 1e8;
@@ -53,13 +54,18 @@ contract SavingAccount is Ownable {
     }
 
     function redeem(uint256 _amount) external moreThanZero(_amount) {
-        if (s_amountDscUserDeposited[msg.sender] >= _amount) {
-            revert SavingAccountCannotRedeemMoreThanBalance();
-        }
         if (_amount == type(uint256).max) {
             _amount = i_dsc.balanceOf(msg.sender);
         }
-        uint256 dscToSendUser = _calculateUserInterestAccumulatedSinceLastUpdate(msg.sender) * _amount;
+        uint256 dscToSendUser =
+            _amount * _calculateUserInterestAccumulatedSinceLastUpdate(msg.sender) / PRECISION_FACTOR;
+        if (dscToSendUser > i_dsc.balanceOf(address(this))) {
+            revert SavingAccount__SavingAccountDoesNotHaveSufficientBalanceToTransfer();
+        }
+        (bool success) = i_dsc.transfer(msg.sender, dscToSendUser);
+        if (!success) {
+            revert SavingAccount__RedeemFailed();
+        }
     }
 
     function setInterestRate(uint256 _newInterestRate) external onlyOwner {
