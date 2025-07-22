@@ -76,26 +76,48 @@ contract SavingAccountTest is Test {
     function testRedeemStraightAway(uint256 amount) public {
         amount = bound(amount, 1e5, type(uint96).max);
         dsc.mint(user, amount);
-        dsc.mint(address(saver), (amount + amount));
         uint256 startingUserDscBalance = dsc.balanceOf(user);
         uint256 startingSaverBalance = dsc.balanceOf(address(saver));
+
         vm.startPrank(user);
         dsc.approve(address(saver), amount);
         saver.deposit(amount);
         uint256 middleUserBalance = dsc.balanceOf(user);
         uint256 middleSaverBalance = dsc.balanceOf(address(saver));
+
         saver.redeem(amount);
         uint256 endingUserBalance = dsc.balanceOf(user);
         uint256 endingSaverBalance = dsc.balanceOf(address(saver));
         vm.stopPrank();
 
         assertEq(startingUserDscBalance, amount);
-        assertEq(startingSaverBalance, amount + amount);
+        assertEq(startingSaverBalance, 0);
 
         assertEq(middleUserBalance, 0);
-        assertEq(middleSaverBalance, amount + (amount + amount));
+        assertEq(middleSaverBalance, amount);
 
-        assertEq(endingSaverBalance, amount + amount);
+        assertEq(endingSaverBalance, 0);
         assertEq(endingUserBalance, amount);
     }
+
+    //     function testRedeemAfterTimeHasPassed(uint256 time, uint256 amount) public {
+    //         time = bound(time, 1000, type(uint96).max);
+    //         amount = bound(amount, 1e5, type(uint96).max);
+
+    //         dsc.mint(user, amount);
+    //         uint256 startingUserDscBalance = dsc.balanceOf(user);
+    //         vm.startPrank(user);
+    //         dsc.approve(address(saver), amount);
+    //         saver.deposit(amount);
+
+    //         vm.warp(block.timestamp + time);
+
+    //         uint256 userBalanceAfterTime
+    //         saver.redeem(type(uint256).max);
+    //         console.log("user balance after redeem", dsc.balanceOf(user));
+    //         uint256 endingUserBalance = dsc.balanceOf(user);
+    //         vm.stopPrank();
+
+    //         assertGt(endingUserBalance, startingUserDscBalance);
+    //     }
 }

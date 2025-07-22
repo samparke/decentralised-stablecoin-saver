@@ -36,16 +36,19 @@ contract SavingAccount is Ownable {
         i_dsc = dsc;
     }
 
+    /**
+     * @notice deposits dsc to the saving account
+     * @param _amount the amount the user wants to deposit
+     * @dev it accrues the msg.sender's current interest (from previous deposit, and adds to deposit mapping)
+     * it adds the now-deposited amount to the user dsc deposited mapping, and sends the amount to the contract
+     */
     function deposit(uint256 _amount) external moreThanZero(_amount) {
-        // if (_amount == type(uint256).max) {
-        //     _amount = i_dsc.balanceOf(msg.sender);
-        // }
+        _accrue(msg.sender);
 
         if (i_dsc.balanceOf(msg.sender) < _amount) {
             revert SavingAccount__InsufficientDscBalance();
         }
         s_amountDscUserDeposited[msg.sender] += _amount;
-        // need to address multiple deposits, if a user deposits after an initial deposit, it will cause an error in interest calculation
         s_userSinceLastUpdated[msg.sender] = block.timestamp;
         (bool success) = i_dsc.transferFrom(msg.sender, address(this), _amount);
         if (!success) {
@@ -53,31 +56,61 @@ contract SavingAccount is Ownable {
         }
     }
 
+    /**
+     * @notice calculates user interest accumulated, stores this whole user dsc balance in principle variable,
+     * reduces the desired amount to redeem from total balance, and sends this to the user
+     * @param _amount the amount the msg.sender wants to redeem (removed dsc from the contract)
+     */
     function redeem(uint256 _amount) external moreThanZero(_amount) {
+        _accrue(msg.sender);
+
+        uint256 principle = s_amountDscUserDeposited[msg.sender];
+
         if (_amount == type(uint256).max) {
-            _amount = i_dsc.balanceOf(msg.sender);
+            _amount = principle;
         }
-        uint256 dscToSendUser =
-            _amount * _calculateUserInterestAccumulatedSinceLastUpdate(msg.sender) / PRECISION_FACTOR;
-        if (dscToSendUser > i_dsc.balanceOf(address(this))) {
-            revert SavingAccount__SavingAccountDoesNotHaveSufficientBalanceToTransfer();
-        }
-        (bool success) = i_dsc.transfer(msg.sender, dscToSendUser);
+
+        s_amountDscUserDeposited[msg.sender] = principle - _amount;
+        s_userSinceLastUpdated[msg.sender] = block.timestamp;
+        (bool success) = i_dsc.transfer(msg.sender, _amount);
         if (!success) {
             revert SavingAccount__RedeemFailed();
         }
     }
 
+    /**
+     * @notice set new interest rate
+     * @param _newInterestRate the new interest rate to be set
+     */
     function setInterestRate(uint256 _newInterestRate) external onlyOwner {
         s_interestRate = _newInterestRate;
         emit UpdatedInterestRate(_newInterestRate);
     }
 
-    function _accrueInterest() internal {}
-
-    function _calculateUserInterestAccumulatedSinceLastUpdate(address _user) internal view returns (uint256 interest) {
+    /**
+     * @notice calculates the interest gained for the user
+     * @param _user the user to calculate interest for
+     * @return principle the original user dsc balance before calculating interest
+     * @return interest the user dsc balance has accumulated
+     */
+    function calculateAccruedInterest(address _user) public view returns (uint256 principle, uint256 interest) {
+        principle = s_amountDscUserDeposited[_user];
         uint256 timeElapsed = block.timestamp - s_userSinceLastUpdated[_user];
-        interest = PRECISION_FACTOR + (s_interestRate * timeElapsed);
+        interest = principle * s_interestRate * timeElapsed / PRECISION_FACTOR;
+    }
+
+    // internal functions
+
+    /**
+     * @notice adds the accumulated interest and the original balance to the user deposit mapping
+     * @param _user the user we are calculating the interest for
+     */
+    function _accrue(address _user) internal {
+        (uint256 principle, uint256 interest) = calculateAccruedInterest(_user);
+        if (interest > 0) {
+            s_amountDscUserDeposited[_user] = principle + interest;
+        }
+        s_userSinceLastUpdated[_user] = block.timestamp;
     }
 
     // getter functions
@@ -86,11 +119,11 @@ contract SavingAccount is Ownable {
         return s_interestRate;
     }
 
-    function getUserLastUpdate(address user) external view returns (uint256) {
-        return s_userSinceLastUpdated[user];
+    function getUserLastUpdate(address _user) external view returns (uint256) {
+        return s_userSinceLastUpdated[_user];
     }
 
-    function getUserDscDeposited(address user) external view returns (uint256) {
-        return s_amountDscUserDeposited[user];
+    function getUserDscDeposited(address _user) external view returns (uint256) {
+        return s_amountDscUserDeposited[_user];
     }
 }
