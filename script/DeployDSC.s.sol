@@ -6,12 +6,13 @@ import {Script} from "forge-std/Script.sol";
 import {DecentralisedStablecoin} from "../src/DecentralisedStablecoin.sol";
 import {HelperConfig} from "../script/HelperConfig.s.sol";
 import {DSCEngine} from "../src/DSCEngine.sol";
+import {SavingAccount} from "../src/SavingAccount.sol";
 
 contract DeployDSC is Script {
     address[] public tokenAddresses;
     address[] public priceFeedAddresses;
 
-    function run() external returns (DecentralisedStablecoin, DSCEngine, HelperConfig) {
+    function run() external returns (DecentralisedStablecoin, DSCEngine, SavingAccount, HelperConfig) {
         HelperConfig config = new HelperConfig();
         // gets the price feeds and token addresses from anvil chain
         (address wethUsdPriceFeed, address wbtcUsdPriceFeed, address weth, address wbtc, uint256 deployerKey) =
@@ -25,9 +26,10 @@ contract DeployDSC is Script {
         DecentralisedStablecoin dsc = new DecentralisedStablecoin();
         // constructor variables
         DSCEngine engine = new DSCEngine(tokenAddresses, priceFeedAddresses, address(dsc));
+        SavingAccount saver = new SavingAccount(dsc);
         // we want the engine to be the address which can mint and burn etc
         dsc.transferOwnership(address(engine));
         vm.stopBroadcast();
-        return (dsc, engine, config);
+        return (dsc, engine, saver, config);
     }
 }

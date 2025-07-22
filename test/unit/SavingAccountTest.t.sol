@@ -7,17 +7,22 @@ import {DecentralisedStablecoin} from "../../src/DecentralisedStablecoin.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {Test, console} from "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {DeployDSC} from "../../script/DeployDSC.s.sol";
+import {HelperConfig} from "../../script/HelperConfig.s.sol";
 
 contract SavingAccountTest is Test {
+    DeployDSC deployer;
     DecentralisedStablecoin dsc;
     SavingAccount saver;
+    DSCEngine engine;
+    HelperConfig config;
     address user = makeAddr("user");
     address user2 = makeAddr("user2");
     address owner = makeAddr("owner");
 
     function setUp() public {
-        dsc = new DecentralisedStablecoin();
-        saver = new SavingAccount(dsc);
+        deployer = new DeployDSC();
+        (dsc, engine, saver, config) = deployer.run();
     }
 
     // deposit tests
@@ -28,6 +33,7 @@ contract SavingAccountTest is Test {
 
     function testDepositUserMappingAndContractBalanceIncreases(uint256 amount) public {
         amount = bound(amount, 1e5, type(uint96).max);
+        vm.prank(address(engine));
         dsc.mint(user, amount);
         vm.startPrank(user);
         dsc.approve(address(saver), amount);
@@ -40,6 +46,7 @@ contract SavingAccountTest is Test {
 
     function testDepositAmountMoreThanBalanceRevert(uint256 amount) public {
         amount = bound(amount, 1e5, type(uint96).max);
+        vm.prank(address(engine));
         dsc.mint(user, amount);
         vm.startPrank(user);
         dsc.approve(address(saver), amount + 1 ether);
@@ -62,6 +69,9 @@ contract SavingAccountTest is Test {
 
     function testInterestRateIsUpdated(uint256 newInterestRate) public {
         newInterestRate = bound(newInterestRate, 0, type(uint96).max);
+        (,,,, uint256 deployerKey) = config.activeNetworkConfig();
+        address deployerEOA = vm.addr(deployerKey);
+        vm.prank(deployerEOA);
         saver.setInterestRate(newInterestRate);
         assertEq(newInterestRate, saver.getContractInterestRate());
     }
@@ -75,6 +85,7 @@ contract SavingAccountTest is Test {
 
     function testRedeemStraightAway(uint256 amount) public {
         amount = bound(amount, 1e5, type(uint96).max);
+        vm.prank(address(engine));
         dsc.mint(user, amount);
         uint256 startingUserDscBalance = dsc.balanceOf(user);
         uint256 startingSaverBalance = dsc.balanceOf(address(saver));
@@ -104,6 +115,7 @@ contract SavingAccountTest is Test {
         time = bound(time, 1000, type(uint96).max);
         amount = bound(amount, 1e5, type(uint96).max);
 
+        vm.prank(address(engine));
         dsc.mint(user, amount);
         uint256 startingUserDscBalance = dsc.balanceOf(user);
         vm.startPrank(user);
@@ -113,6 +125,7 @@ contract SavingAccountTest is Test {
 
         vm.warp(block.timestamp + time);
         (uint256 principle, uint256 interest) = saver.calculateAccruedInterest(user);
+        vm.prank(address(engine));
         dsc.mint(address(saver), principle + interest);
 
         vm.prank(user);
